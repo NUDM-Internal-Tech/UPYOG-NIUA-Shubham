@@ -24,6 +24,7 @@ const FormStep = ({
   isMultipleAllow = false,
   showErrorBelowChildren = false,
   childrenAtTheBottom = true,
+  childrenBeforeInputs,
   textInputStyle,
   isMandatory
 }) => {
@@ -156,6 +157,7 @@ const FormStep = ({
         t={t}
       >
         {!childrenAtTheBottom && children}
+        {childrenBeforeInputs}
         {inputs}
         {forcedError && !showErrorBelowChildren && (
           <CardLabelError>{t(forcedError)}</CardLabelError>

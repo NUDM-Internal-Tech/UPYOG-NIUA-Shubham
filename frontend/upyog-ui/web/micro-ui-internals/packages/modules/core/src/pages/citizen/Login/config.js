@@ -1,3 +1,5 @@
+import { getOnboardingStep } from "../../../config/onboarding";
+
 export const loginSteps = [
   {
     texts: {
@@ -62,3 +64,17 @@ export const loginSteps = [
     ],
   },
 ];
+
+export const getLoginSteps = (onboardingConfig) => {
+  if (!onboardingConfig) return loginSteps;
+
+  const loginStep = getOnboardingStep(onboardingConfig, "login");
+  const otpStep = getOnboardingStep(onboardingConfig, "otp");
+  const registerStep = getOnboardingStep(onboardingConfig, "register");
+
+  return [
+    loginStep?.texts ? loginStep : loginSteps[0],
+    otpStep?.texts ? otpStep : loginSteps[1],
+    registerStep?.texts ? registerStep : loginSteps[2],
+  ];
+};

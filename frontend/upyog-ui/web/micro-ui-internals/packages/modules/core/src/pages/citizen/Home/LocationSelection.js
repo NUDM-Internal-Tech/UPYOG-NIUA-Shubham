@@ -2,12 +2,18 @@ import { BackButton, CardHeader, CardLabelError, Loader, PageBasedInput, SearchO
 import React, { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation,  } from "react-router-dom";
+import { getOnboardingTextKey, useOnboardingConfig } from "../../../config/onboarding";
 
 const LocationSelection = () => {
   const { t } = useTranslation();
   const navigate = Digit.Hooks.useCustomNavigate();
   const location = useLocation();
+  const { config: onboardingConfig } = useOnboardingConfig();
   const { data: cities, isLoading } = Digit.Hooks.useTenants();
+  const headerKey = getOnboardingTextKey(onboardingConfig, "location", "header", "CS_COMMON_CHOOSE_LOCATION");
+  const submitBarLabelKey = getOnboardingTextKey(onboardingConfig, "location", "submitBarLabel", "CORE_COMMON_CONTINUE");
+  const searchPlaceholderKey = getOnboardingTextKey(onboardingConfig, "location", "searchPlaceholder", "COMMON_TABLE_SEARCH");
+  const requiredErrorKey = getOnboardingTextKey(onboardingConfig, "location", "requiredError", "CS_COMMON_LOCATION_SELECTION_ERROR");
 
   // Initialize state with the home city code from sessionStorage if it exists, otherwise set to null representing no selection.
   // This prevents initializing as an empty object { code: null } which behaves as truthy and bypasses validation.
@@ -31,10 +37,10 @@ const LocationSelection = () => {
 
   const texts = useMemo(
     () => ({
-      header: t("CS_COMMON_CHOOSE_LOCATION"),
-      submitBarLabel: t("CORE_COMMON_CONTINUE"),
+      header: t(headerKey),
+      submitBarLabel: t(submitBarLabelKey),
     }),
-    [t]
+    [headerKey, submitBarLabelKey, t]
   );
 
   function selectCity(city) {
@@ -56,7 +62,7 @@ const LocationSelection = () => {
     // Validate that a city is selected (has a valid code) before proceeding
     if (!selectedCity?.code) {
       // Display the validation Toast warning and inline error label, then block further navigation
-      setShowToast({ error: true, label: "CS_COMMON_LOCATION_SELECTION_ERROR" });
+      setShowToast({ error: true, label: requiredErrorKey });
       setShowError(true);
       return;
     }
@@ -73,9 +79,9 @@ const LocationSelection = () => {
     <div className="selection-card-wrapper">
       <BackButton />
       <PageBasedInput texts={texts} onSubmit={onSubmit} className="location-selection-container">
-        <CardHeader>{t("CS_COMMON_CHOOSE_LOCATION")}</CardHeader>
-        <SearchOnRadioButtons {...RadioButtonProps} placeholder={t("COMMON_TABLE_SEARCH")} />
-        {showError ? <CardLabelError>{t("CS_COMMON_LOCATION_SELECTION_ERROR")}</CardLabelError> : null}
+        <CardHeader>{t(headerKey)}</CardHeader>
+        <SearchOnRadioButtons {...RadioButtonProps} placeholder={t(searchPlaceholderKey)} />
+        {showError ? <CardLabelError>{t(requiredErrorKey)}</CardLabelError> : null}
       </PageBasedInput>
       {/* Toast component to show error message if user clicks continue without selecting location */}
       {showToast && (

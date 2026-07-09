@@ -1,0 +1,18 @@
+{
+  "theme": {
+    "colors": {
+      "brand": {
+        "primary": "#a82227"
+      },
+      "background": {
+        "default": "#FAF8FC"
+      }
+    }
+  },
+  "features": {
+    "enableLanguageSelection": true,
+    "enableCitySelection": true,
+    "enableDigiLocker": true,
+    "enableNewOnboardingFlow": false
+  }
+}

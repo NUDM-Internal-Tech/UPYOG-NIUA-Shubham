@@ -9,6 +9,64 @@
     <meta name="theme-color" content="#00bcd1"/>
     <!-- Runtime config (STATE_LEVEL_TENANT_ID, etc.). Without it, many MDMS/API calls used undefined tenant. -->
     <script src="https://s3.ap-south-1.amazonaws.com/in-egov-assets/globalConfigs.js"></script>
+    <script>
+      (function initializeOnboardingTheme() {
+        var configUrls = [
+          "/upyog-ui/config/onboarding.default.json",
+          "/upyog-ui/config/onboarding.workbench.json",
+          "/config/onboarding.default.json",
+          "/config/onboarding.workbench.json"
+        ];
+
+        function isObject(value) {
+          return value && typeof value === "object" && !Array.isArray(value);
+        }
+
+        function mergeConfig(base, override) {
+          if (!isObject(override)) return base;
+          return Object.keys(override).reduce(function (merged, key) {
+            if (isObject(merged[key]) && isObject(override[key])) {
+              merged[key] = mergeConfig(merged[key], override[key]);
+            } else {
+              merged[key] = override[key];
+            }
+            return merged;
+          }, Object.assign({}, base));
+        }
+
+        function toCssVariableName(parts) {
+          return "--upyog-onboarding-" + parts.join("-").replace(/[A-Z]/g, function (match) {
+            return "-" + match.toLowerCase();
+          });
+        }
+
+        function applyTheme(value, path) {
+          if (!isObject(value)) {
+            if (value !== undefined && value !== null && path.length) {
+              document.documentElement.style.setProperty(toCssVariableName(path), value);
+            }
+            return;
+          }
+
+          Object.keys(value).forEach(function (key) {
+            applyTheme(value[key], path.concat(key));
+          });
+        }
+
+        Promise.all(configUrls.map(function (url) {
+          return fetch(url).then(function (response) {
+            return response.ok ? response.json() : {};
+          }).catch(function () {
+            return {};
+          });
+        })).then(function (configs) {
+          var finalConfig = configs.reduce(mergeConfig, {});
+          applyTheme(finalConfig.theme || {}, []);
+        }).catch(function (error) {
+          console.warn("Unable to initialize onboarding theme early:", error);
+        });
+      })();
+    </script>
     <script src="https://pgtest.atomtech.in/staticdata/ots/js/atomcheckout.js"></script>
     <title>UPYOG</title>
   </head>

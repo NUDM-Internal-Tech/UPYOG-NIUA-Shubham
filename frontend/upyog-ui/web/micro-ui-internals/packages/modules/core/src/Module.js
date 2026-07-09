@@ -9,6 +9,7 @@ import { DigitApp } from "./App";
 import SelectOtp from "./pages/citizen/Login/SelectOtp";
 import AcknowledgementCF from "./components/AcknowledgementCF";
 import CitizenFeedback from "./components/CitizenFeedback";
+import { OnboardingConfigProvider } from "./config/onboarding";
 
 import getStore from "./redux/store";
 import ErrorBoundary from "./components/ErrorBoundaries";
@@ -108,7 +109,9 @@ export const DigitUI = ({ stateCode, registry, enabledModules, moduleReducers })
                 },
               }}
             >
-              <DigitUIWrapper stateCode={stateCode} enabledModules={enabledModules} moduleReducers={moduleReducers} />
+              <OnboardingConfigProvider>
+                <DigitUIWrapper stateCode={stateCode} enabledModules={enabledModules} moduleReducers={moduleReducers} />
+              </OnboardingConfigProvider>
             </PrivacyProvider.Provider>
           </ComponentProvider.Provider>
           </TanstackQueryClientProvider>

@@ -1,24 +1,45 @@
 import React, { useState, useEffect } from "react";
-import { CardText, FormStep, CitizenConsentForm, Loader, CheckBox,Modal,Card ,CardHeader} from "@nudmcdgnpm/digit-ui-react-components";
-import { Link } from "react-router-dom";
+import { CardLabel, CardLabelError, CardText, FormStep, CitizenConsentForm, Loader, CheckBox,Modal,Card ,CardHeader, RadioButtons, SearchOnRadioButtons} from "@nudmcdgnpm/digit-ui-react-components";
 
-const SelectMobileNumber = ({ t, onSelect, showRegisterLink, mobileNumber, onMobileChange, config, canSubmit }) => {
+const SelectMobileNumber = ({ t, onSelect, showRegisterLink, mobileNumber, onMobileChange, config, canSubmit, onboardingConfig }) => {
 
   const [isCheckBox, setIsCheckBox] = useState(false);
   const [isCCFEnabled, setisCCFEnabled] = useState(false);
   const [mdmsConfig, setMdmsConfig] = useState("");
   const [error, setError]=useState("");
   const { isLoading, data } = Digit.Hooks.useCustomMDMS(Digit.ULBService.getStateId(), "common-masters", [{ name: "CitizenConsentForm" }]);
+  const { data: { languages, stateInfo } = {}, isLoading: isInitDataLoading } = Digit.Hooks.useStore.getInitData();
+  const { data: cities, isLoading: isCitiesLoading } = Digit.Hooks.useTenants();
   const [showToast, setShowToast] = useState(null);
+  const showDigiLocker = onboardingConfig?.features?.enableDigiLocker !== false;
+  const showLanguageSelection = onboardingConfig?.features?.enableLanguageSelection !== false && config?.controls?.language?.visible !== false;
+  const showCitySelection = onboardingConfig?.features?.enableCitySelection !== false && config?.controls?.city?.visible !== false;
+  const mobileField = config?.inputs?.find((input) => input.name === "mobileNumber");
+  const mobilePrefix = mobileField?.prefix === undefined ? "+91" : mobileField.prefix;
+  const selectedLanguageValue = Digit.StoreData.getCurrentLanguage();
+  const [selectedLanguage, setSelectedLanguage] = useState(() => languages?.filter((language) => language.value === selectedLanguageValue)[0]);
+  const [selectedCity, setSelectedCity] = useState(() => {
+    const homeCity = Digit.ULBService.getCitizenCurrentTenant(true);
+    return homeCity ? { code: homeCity } : null;
+  });
+  const [locationError, setLocationError] = useState(false);
+
+  useEffect(() => {
+    if (!selectedLanguage && languages?.length) {
+      setSelectedLanguage(languages.filter((language) => language.value === selectedLanguageValue)[0]);
+    }
+  }, [languages, selectedLanguage, selectedLanguageValue]);
+
   function setTermsAndPolicyDetails(e) {
     setIsCheckBox(e.target.checked)
   }
 
   const checkDisbaled = () => {
+    const isCityMissing = showCitySelection && !selectedCity?.code;
     if (isCCFEnabled?.isCitizenConsentFormEnabled) {
-      return !(mobileNumber.length === 10 && canSubmit && isCheckBox)
+      return !(mobileNumber.length === 10 && canSubmit && isCheckBox && !isCityMissing)
     } else {
-      return !(mobileNumber.length === 10 && canSubmit)
+      return !(mobileNumber.length === 10 && canSubmit && !isCityMissing)
     }
   }
 
@@ -62,7 +83,35 @@ const SelectMobileNumber = ({ t, onSelect, showRegisterLink, mobileNumber, onMob
         setError(t("CORE_COMMON_PROFILE_MOBILE_NUMBER_INVALID"));
       }
   };
-  if (isLoading) return <Loader />
+  if (isLoading || isInitDataLoading || isCitiesLoading) return <Loader />
+
+  const handleLanguageSelect = (language) => {
+    setSelectedLanguage(language);
+    Digit.LocalizationService.changeLanguage(language.value, stateInfo?.code);
+  };
+
+  const handleCitySelect = (city) => {
+    setSelectedCity(city);
+    setLocationError(false);
+  };
+
+  const handleSelect = (formData) => {
+    if (showCitySelection && !selectedCity?.code) {
+      setLocationError(true);
+      return;
+    }
+
+    if (selectedCity?.code) {
+      Digit.SessionStorage.set("CITIZEN.COMMON.HOME.CITY", selectedCity);
+    }
+
+    onSelect({
+      ...formData,
+      language: selectedLanguage,
+      city: selectedCity,
+    });
+  };
+
   const register = async (e) => {
     const data = await Digit.DigiLockerService.register({ module: "SSO" });
     e.preventDefault()
@@ -100,15 +149,47 @@ const SelectMobileNumber = ({ t, onSelect, showRegisterLink, mobileNumber, onMob
     register(e)
   }
 
+  const loginContextControls = (
+    <>
+      {showLanguageSelection && (
+        <div className="form-field">
+          <CardLabel>{t(config?.controls?.language?.label || "CS_COMMON_CHOOSE_LANGUAGE")}</CardLabel>
+          <RadioButtons
+            options={languages || []}
+            optionsKey="label"
+            additionalWrapperClass="reverse-radio-selection-wrapper"
+            onSelect={handleLanguageSelect}
+            selectedOption={selectedLanguage}
+          />
+        </div>
+      )}
+      {showCitySelection && (
+        <div className="form-field">
+          <CardLabel>{t(config?.controls?.city?.label || "CS_COMMON_CHOOSE_LOCATION")}</CardLabel>
+          <SearchOnRadioButtons
+            options={cities || []}
+            optionsKey="i18nKey"
+            additionalWrapperClass="reverse-radio-selection-wrapper"
+            onSelect={handleCitySelect}
+            selectedOption={selectedCity}
+            placeholder={t(config?.controls?.city?.placeholder || "COMMON_TABLE_SEARCH")}
+          />
+          {locationError ? <CardLabelError>{t(config?.controls?.city?.requiredError || "CS_COMMON_LOCATION_SELECTION_ERROR")}</CardLabelError> : null}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <FormStep
       isDisabled={checkDisbaled()}
-      onSelect={onSelect}
+      onSelect={handleSelect}
       config={config}
       t={t}
-      componentInFront="+91"
+      componentInFront={mobilePrefix}
       onChange={handleMobileChange}
       value={mobileNumber}
+      childrenBeforeInputs={loginContextControls}
     >
       {error && <p style={{color:"red"}}>{error}</p>}
       {isCCFEnabled?.isCitizenConsentFormEnabled && (
@@ -132,7 +213,7 @@ const SelectMobileNumber = ({ t, onSelect, showRegisterLink, mobileNumber, onMob
           setMdmsConfig={setMdmsConfig}
         />
       </div>)}
-      <div className="col col-md-4  text-md-center p-0" style={{width:"40%", marginTop:"5px"}}>
+      {showDigiLocker && <div className="col col-md-4  text-md-center p-0" style={{width:"40%", marginTop:"5px"}}>
         <button
           className="digilocker-btn"
           type="button"
@@ -159,7 +240,7 @@ const SelectMobileNumber = ({ t, onSelect, showRegisterLink, mobileNumber, onMob
     </Card>
      </div>
       </Modal>}
-                </div>
+                </div>}
     </FormStep>
   );
 };

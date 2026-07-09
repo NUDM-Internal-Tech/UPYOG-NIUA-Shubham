@@ -2,10 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AppContainer, BackButton, Toast } from "@nudmcdgnpm/digit-ui-react-components";
 import { Route, Routes, useLocation,  } from "react-router-dom";
-import { loginSteps } from "./config";
+import { getLoginSteps } from "./config";
 import SelectMobileNumber from "./SelectMobileNumber";
 import SelectOtp from "./SelectOtp";
 import SelectName from "./SelectName";
+import { useOnboardingConfig } from "../../../config/onboarding";
 import { subYears, format } from "date-fns";
 const TYPE_REGISTER = { type: "register" };
 const TYPE_LOGIN = { type: "login" };
@@ -45,6 +46,8 @@ const Login = ({ stateCode, isUserRegistered = true }) => {
   const [canSubmitName, setCanSubmitName] = useState(false);
   const [canSubmitOtp, setCanSubmitOtp] = useState(true);
   const [canSubmitNo, setCanSubmitNo] = useState(true);
+  const { config: onboardingConfig } = useOnboardingConfig();
+  const redirects = onboardingConfig?.redirects || {};
 
   useEffect(() => {
     let errorTimeout;
@@ -70,7 +73,7 @@ const Login = ({ stateCode, isUserRegistered = true }) => {
     Digit.SessionStorage.set("citizen.userRequestObject", user);
     Digit.UserService.setUser(user);
     setCitizenDetail(user?.info, user?.access_token, stateCode);
-    const redirectPath = location.state?.from || DEFAULT_REDIRECT_URL;
+    const redirectPath = location.state?.from || redirects.onLoginSuccess || redirects.onOtpSuccess || DEFAULT_REDIRECT_URL;
     if (!Digit.ULBService.getCitizenCurrentTenant(true)) {
       navigate("/upyog-ui/citizen/select-location", { replace: true, state: {
         redirectBackTo: redirectPath,
@@ -80,17 +83,16 @@ const Login = ({ stateCode, isUserRegistered = true }) => {
     }
   }, [user]);
 
-  const stepItems = useMemo(() =>
-    loginSteps.map(
-      (step) => {
+  const stepItems = useMemo(
+    () =>
+      getLoginSteps(onboardingConfig).map((step) => {
         const texts = {};
         for (const key in step.texts) {
           texts[key] = t(step.texts[key]);
         }
         return { ...step, texts };
-      },
-      [t]
-    )
+      }),
+    [onboardingConfig, t]
   );
 
   const getUserType = () => "citizen";
@@ -107,7 +109,10 @@ const Login = ({ stateCode, isUserRegistered = true }) => {
   const selectMobileNumber = async (formData) => {
     setCanSubmitNo(false);
     const mobileNumber = params.mobileNumber || formData?.mobileNumber;
-    setParmas({ ...params, mobileNumber });
+    if (formData?.city?.code) {
+      Digit.SessionStorage.set("CITIZEN.COMMON.HOME.CITY", formData.city);
+    }
+    setParmas({ ...params, mobileNumber, city: formData?.city, language: formData?.language });
     const data = {
       mobileNumber,
       tenantId: stateCode,
@@ -266,6 +271,7 @@ const Login = ({ stateCode, isUserRegistered = true }) => {
               <SelectMobileNumber
                 onSelect={selectMobileNumber}
                 config={stepItems[0]}
+                onboardingConfig={onboardingConfig}
                 mobileNumber={params.mobileNumber || ""}
                 onMobileChange={handleMobileChange}
                 canSubmit={canSubmitNo}
@@ -285,6 +291,8 @@ const Login = ({ stateCode, isUserRegistered = true }) => {
                 otp={params.otp}
                 error={isOtpValid}
                 canSubmit={canSubmitOtp}
+                otpLength={stepItems[1]?.otpLength}
+                resendDisabledTime={stepItems[1]?.resendDisabledTime}
                 t={t}
               />
             }
